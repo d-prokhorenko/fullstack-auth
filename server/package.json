@@ -37,7 +37,7 @@
     "connect-redis": "^9.0.0",
     "cookie-parser": "^1.4.7",
     "express-session": "^1.19.0",
-    "ioredis": "^5.9.3",
+    "redis": "^5.10.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },

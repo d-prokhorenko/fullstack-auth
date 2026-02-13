@@ -4,14 +4,15 @@ import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 import cookieParser from 'cookie-parser';
 import { ValidationPipe } from '@nestjs/common';
-import IORedis from 'ioredis';
+
 import session from 'express-session';
 import { ms, StringValue } from './libs/common/utils/ms-util';
 import { parseBoolean } from './libs/common/utils/parse-boolean.util';
-import { RedisStore } from 'connect-redis';
+import { createClient } from 'redis';
 
 import dotenv from 'dotenv';
 import dotenvExpand from 'dotenv-expand';
+import { RedisStore } from 'connect-redis';
 
 dotenvExpand.expand(dotenv.config());
 
@@ -19,7 +20,16 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   const config = app.get(ConfigService);
-  const redis = new IORedis(config.getOrThrow<string>('REDIS_URI'));
+
+  const redisClient = createClient({
+    url: config.getOrThrow<string>('REDIS_URI'),
+  });
+
+  await redisClient.connect();
+
+  redisClient.on('error', (err) => console.error('Redis Client Error:', err));
+  redisClient.on('connect', () => console.log('Redis connected ✅'));
+  redisClient.on('ready', () => console.log('Redis ready ✅'));
 
   app.use(cookieParser(config.getOrThrow<string>('COOKIES_SECRET')));
 
@@ -37,7 +47,7 @@ async function bootstrap() {
         sameSite: 'lax',
       },
       store: new RedisStore({
-        client: redis,
+        client: redisClient,
         prefix: config.getOrThrow<string>('SESSION_FOLDER'),
       }),
     }),
