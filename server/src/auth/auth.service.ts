@@ -14,6 +14,7 @@ import { verify } from 'argon2';
 import { ConfigService } from '@nestjs/config';
 import { ProviderService } from './provider/provider.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { EmailConfirmationService } from './email-confirmation/email-confirmation.service';
 
 @Injectable()
 export class AuthService {
@@ -22,6 +23,7 @@ export class AuthService {
     private readonly userService: UserService,
     private readonly configService: ConfigService,
     private readonly providerService: ProviderService,
+    private readonly emailConfirmationService: EmailConfirmationService,
   ) {}
 
   async register(req: Request, dto: RegisterDto) {
@@ -43,7 +45,12 @@ export class AuthService {
       false,
     );
 
-    return this.saveSession(req, newUser);
+    await this.emailConfirmationService.sendVerificationToken(newUser);
+
+    return {
+      message:
+        'Вы успешно зарегистрировались. Пожалуйста, подтвердите ваш email. Сообщение было отправлено на ваш почтовый адрес.',
+    };
   }
 
   async login(req: Request, dto: LoginDto) {
@@ -60,6 +67,13 @@ export class AuthService {
     if (!isValidPassword) {
       throw new UnauthorizedException(
         'Неверный пароль. Пожалуйста, попробуйте еще раз или восстановите пароль, если забыли его.',
+      );
+    }
+
+    if (!user.isVerified) {
+      await this.emailConfirmationService.sendVerificationToken(user);
+      throw new UnauthorizedException(
+        'Ваш email не подтвержден. Пожалуйста, проверьте вашу почту и подтвердите адрес.',
       );
     }
 
@@ -127,13 +141,12 @@ export class AuthService {
     });
   }
 
-  private async saveSession(req: Request, user: User) {
+  async saveSession(req: Request, user: User) {
     return new Promise((resolve, reject) => {
       req.session.userId = user.id;
 
       req.session.save((error) => {
         if (error) {
-          console.log(error);
           return reject(
             new InternalServerErrorException(
               'Не удалось сохранить сессию. Проверьте, правильно ли настроены параметры сессии.',
