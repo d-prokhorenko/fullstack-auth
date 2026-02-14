@@ -27,10 +27,6 @@ async function bootstrap() {
 
   await redisClient.connect();
 
-  redisClient.on('error', (err) => console.error('Redis Client Error:', err));
-  redisClient.on('connect', () => console.log('Redis connected ✅'));
-  redisClient.on('ready', () => console.log('Redis ready ✅'));
-
   app.use(cookieParser(config.getOrThrow<string>('COOKIES_SECRET')));
 
   app.use(
